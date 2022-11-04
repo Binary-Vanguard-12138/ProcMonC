@@ -6,6 +6,7 @@
 #include <tchar.h>
 #include <string>
 #include <algorithm>
+#include <iostream>
 
 #ifdef UNICODE
 #define tstring std::wstring
@@ -19,4 +20,5 @@ BOOL GetNameByProcessId(DWORD dwProcessId, TCHAR* szFilePath, DWORD dwBufLen);
 BOOL GetFileNameFromHandle(HANDLE hFile, TCHAR* pszFilename, DWORD dwBufLen);
 std::wstring toLowercase(std::wstring s);
 std::string getAnsiString(TCHAR* szEvent);
+tstring Escape4Csv(tstring s);
 

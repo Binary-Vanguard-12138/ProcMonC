@@ -16,7 +16,7 @@ void SaveProcessEvent(TCHAR* szEvent) {
 	static ULONGLONG s_ullLastFileCreateTime = 0;
 	static std::string sBanner = "EventName,ProcessId,ProcessName,Path,CommandLine,ParentProcessId,ParentProcessName,ParentPath\n";
 	std::string sEvent = getAnsiString(szEvent);
-	printf(sEvent.c_str());
+	// printf(sEvent.c_str());
 	ULONGLONG ullNowTick = GetTickCount64();
 	if (ullNowTick > s_ullLastFileCreateTime + RECORD_INTERVAL_TICKS) {
 		if (INVALID_HANDLE_VALUE != s_hProcessEventFile) {
@@ -33,15 +33,16 @@ void SaveProcessEvent(TCHAR* szEvent) {
 			_tprintf(_T("Faild to create file %s, errno = %d\n"), szFilePath, GetLastError());
 			return;
 		}
+		_tprintf(_T("Created file %s\n"), szFilePath);
 		s_ullLastFileCreateTime = ullNowTick;
 		if (!WriteFile(s_hProcessEventFile, sBanner.c_str(), (DWORD)sBanner.length(), &dwWrittenBytes, NULL)) {
-			_tprintf_s(_T("Failed to write %llu bytes, errno=%d\n"), sBanner.length(), GetLastError());
+			_tprintf_s(_T("Failed to write %zu bytes, errno=%d\n"), sBanner.length(), GetLastError());
 			return;
 		}
 	}
 	dwWrittenBytes = 0;
 	if (!WriteFile(s_hProcessEventFile, sEvent.c_str(), (DWORD)sEvent.length(), &dwWrittenBytes, NULL)) {
-		_tprintf_s(_T("Failed to write %llu bytes, errno=%d\n"), sEvent.length(), GetLastError());
+		_tprintf_s(_T("Failed to write %zu bytes, errno=%d\n"), sEvent.length(), GetLastError());
 		return;
 	}
 }
@@ -68,15 +69,16 @@ void SaveFileEvent(TCHAR* szEvent) {
 			_tprintf(_T("Faild to create file %s, errno = %d\n"), szFilePath, GetLastError());
 			return;
 		}
+		_tprintf(_T("Created file %s\n"), szFilePath);
 		s_ullLastFileCreateTime = ullNowTick;
 		if (!WriteFile(s_hFileEventFile, sBanner.c_str(), (DWORD)sBanner.length(), &dwWrittenBytes, NULL)) {
-			_tprintf_s(_T("Failed to write %llu bytes, errno=%d\n"), sBanner.length(), GetLastError());
+			_tprintf_s(_T("Failed to write %zu bytes, errno=%d\n"), sBanner.length(), GetLastError());
 			return;
 		}
 	}
 	dwWrittenBytes = 0;
 	if (!WriteFile(s_hFileEventFile, sEvent.c_str(), (DWORD)sEvent.length(), &dwWrittenBytes, NULL)) {
-		_tprintf_s(_T("Failed to write %llu bytes, errno=%d\n"), sEvent.length(), GetLastError());
+		_tprintf_s(_T("Failed to write %zu bytes, errno=%d\n"), sEvent.length(), GetLastError());
 		return;
 	}
 }

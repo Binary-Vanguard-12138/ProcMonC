@@ -14,6 +14,7 @@
 
 TCHAR g_szProcessDirPath[MAX_PATH] = {}, g_szFileDirPath[MAX_PATH] = {};
 
+std::map<DWORD, DWORD> g_mapProcess2Parent;
 
 void OnProcessEvent(std::shared_ptr<EventData> data) {
 	auto& wsEventName = data->GetEventName();
@@ -36,12 +37,20 @@ void OnProcessEvent(std::shared_ptr<EventData> data) {
 	if (eventProperty) {
 		dwParentProcessId = eventProperty->GetValue<DWORD>();
 		if (0 < dwParentProcessId) {
-			if (GetNameByProcessId(dwParentProcessId, szParentProcessName, MAX_PATH - 1)) {
-				// wsParentProcessName = szParentProcessName;
-			}
-			if (GetPathByProcessId(dwParentProcessId, szParentProcessPath, MAX_PATH - 1)) {
-				// wsParentProcessPath = szParentProcessPath;
-			}
+			g_mapProcess2Parent[dwProcessId] = dwParentProcessId;
+		}
+	}
+	if (0 == dwParentProcessId) {
+		if (g_mapProcess2Parent.find(dwProcessId) != g_mapProcess2Parent.end()) {
+			dwParentProcessId = g_mapProcess2Parent[dwProcessId];
+		}
+	}
+	if (0 < dwParentProcessId) {
+		if (GetNameByProcessId(dwParentProcessId, szParentProcessName, MAX_PATH - 1)) {
+			// wsParentProcessName = szParentProcessName;
+		}
+		if (GetPathByProcessId(dwParentProcessId, szParentProcessPath, MAX_PATH - 1)) {
+			// wsParentProcessPath = szParentProcessPath;
 		}
 	}
 	size_t dwBufLen = wsEventName.length() + wsProcessName.length() + _tcslen(szProcessPath) + wsCommandLine.length() + _tcslen(szParentProcessName) + _tcslen(szParentProcessPath) + 0x100;
@@ -51,15 +60,15 @@ void OnProcessEvent(std::shared_ptr<EventData> data) {
 		printf("Failed to allocate %zu bytes\n", dwBufLen);
 		return;
 	}
-	_sntprintf_s(szLineBuffer, dwBufLen, dwBufLen - 1, _T("\"%s\",%u,\"%s\",\"%s\",\"%s\",%u,\"%s\",\"%s\"\n"),
-		wsEventName.c_str(),
+	_sntprintf_s(szLineBuffer, dwBufLen, dwBufLen - 1, _T("%s,%u,%s,%s,%s,%u,%s,%s\n"),
+		Escape4Csv(wsEventName).c_str(),
 		dwProcessId, 
-		wsProcessName.c_str(),
-		szProcessPath,
-		wsCommandLine.c_str(),
+		Escape4Csv(wsProcessName).c_str(),
+		Escape4Csv(szProcessPath).c_str(),
+		Escape4Csv(wsCommandLine).c_str(),
 		dwParentProcessId,
-		szParentProcessName,
-		szParentProcessPath);
+		Escape4Csv(szParentProcessName).c_str(),
+		Escape4Csv(szParentProcessPath).c_str());
 	SaveProcessEvent(szLineBuffer);
 	free(szLineBuffer);
 }
@@ -72,9 +81,6 @@ void OnFileEvent(std::shared_ptr<EventData> data) {
 	TCHAR szFilePath[MAX_PATH] = {}, szProcessPath[MAX_PATH] = {};
 	ULONG64 hFileObject = 0, hFileKey = 0;
 	DWORD dwProcessId = data->GetProcessId();
-	if (GetCurrentProcessId() == dwProcessId) {
-		return;
-	}
 	if (GetPathByProcessId(dwProcessId, szProcessPath, MAX_PATH - 1)) {
 	}
 
@@ -150,23 +156,40 @@ void OnFileEvent(std::shared_ptr<EventData> data) {
 			return;
 		}
 		if (wsFilePath.empty()) {
-			_sntprintf_s(szLineBuffer, dwBufLen, dwBufLen - 1, _T("\"%s\",%p,%u,\"%s\"\n"), wsEventName.c_str(), (HANDLE)hFileObject, dwProcessId, szProcessPath);
+			_sntprintf_s(szLineBuffer, dwBufLen, dwBufLen - 1, _T("%s,%p,%u,%s\n"), Escape4Csv(wsEventName).c_str(), (HANDLE)hFileObject, dwProcessId, Escape4Csv(szProcessPath).c_str());
 			// Not save into file which has no filename.
 		}
 		else {
-			_sntprintf_s(szLineBuffer, dwBufLen, dwBufLen - 1, _T("\"%s\",\"%s\",%u,\"%s\"\n"), wsEventName.c_str(), wsFilePath.c_str(), dwProcessId, szProcessPath);
+			_sntprintf_s(szLineBuffer, dwBufLen, dwBufLen - 1, _T("%s,%s,%u,%s\n"), Escape4Csv(wsEventName).c_str(), Escape4Csv(wsFilePath).c_str(), dwProcessId, Escape4Csv(szProcessPath).c_str());
 			SaveFileEvent(szLineBuffer);
 		}
 		free(szLineBuffer);
 	}
 }
 
-TraceManager* g_pProcessMgr = NULL, *g_pFileMgr = NULL;
-HANDLE g_hProcessEvent = INVALID_HANDLE_VALUE, g_hFileEvent = INVALID_HANDLE_VALUE;
+void OnEvent(std::shared_ptr<EventData> data) {
+	if (GetCurrentProcessId() == data->GetProcessId()) {
+		return;
+	}
+	const GUID* pGuid = data->GetGUIDPtr();
+	if (memcmp(pGuid, &ProcessGuid, sizeof(GUID)) == 0) {
+		OnProcessEvent(data);
+		return;
+	}
+
+	if (memcmp(pGuid, &DiskIoGuid, sizeof(GUID)) == 0 || memcmp(pGuid, &FileIoGuid, sizeof(GUID)) == 0) {
+		OnFileEvent(data);
+		return;
+	}
+}
+
+TraceManager* g_pProcessMgr = NULL;
+HANDLE g_hProcessEvent = INVALID_HANDLE_VALUE;
 
 int _tmain(int argc, const TCHAR* argv[]) {
 	TraceManager tmProcess, tmFile;
 	TCHAR szModulePath[MAX_PATH] = {}, szOutputDirPath[MAX_PATH] = {};
+	printf("Starting ProcessMonitorConsole...\nPress Ctrl+C to stop.\n");
 	::GetModuleFileName(NULL, szModulePath, MAX_PATH - 1);
 	*(_tcsrchr(szModulePath, _T('\\'))) = 0;
 	_sntprintf_s(szOutputDirPath, MAX_PATH - 1, _T("%s\\output"), szModulePath);
@@ -191,31 +214,20 @@ int _tmain(int argc, const TCHAR* argv[]) {
 		}
 	}
 
-	tmProcess.AddKernelEventTypes({ KernelEventTypes::Process });
-	tmFile.AddKernelEventTypes({ KernelEventTypes::FileIO | KernelEventTypes::DiskFileIO });
+	tmProcess.AddKernelEventTypes({ KernelEventTypes::Process | KernelEventTypes::FileIO | KernelEventTypes::DiskFileIO });
 
 	g_pProcessMgr = &tmProcess;
-	g_pFileMgr = &tmFile;
 	g_hProcessEvent = ::CreateEvent(nullptr, FALSE, FALSE, nullptr);
-	g_hFileEvent = ::CreateEvent(nullptr, FALSE, FALSE, nullptr);
 
-	if (!tmProcess.Start(OnProcessEvent)) {
+	if (!tmProcess.Start(OnEvent)) {
 		printf("Failed to start process session");
 		return EXIT_FAILURE;
 	}
-	
-	if (!tmFile.Start(OnFileEvent)) {
-		printf("Failed to start file session");
-		return EXIT_FAILURE;
-	}
-
 
 	::SetConsoleCtrlHandler([](auto type) {
 		if (type == CTRL_C_EVENT) {
 			g_pProcessMgr->Stop();
 			::SetEvent(g_hProcessEvent);
-			g_pFileMgr->Stop();
-			::SetEvent(g_hFileEvent);
 			return TRUE;
 		}
 		return FALSE;
@@ -224,11 +236,6 @@ int _tmain(int argc, const TCHAR* argv[]) {
 	if (g_hProcessEvent) {
 		::WaitForSingleObject(g_hProcessEvent, INFINITE);
 		::CloseHandle(g_hProcessEvent);
-	}
-
-	if (g_hFileEvent) {
-		::WaitForSingleObject(g_hFileEvent, INFINITE);
-		::CloseHandle(g_hFileEvent);
 	}
 
 	return 0;

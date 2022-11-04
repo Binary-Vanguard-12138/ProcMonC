@@ -160,6 +160,10 @@ uint32_t EventData::GetIndex() const {
 	return _index;
 }
 
+const GUID *EventData::GetGUIDPtr() const {
+	return &_record->EventHeader.ProviderId;
+}
+
 std::wstring EventData::FormatProperty(const EventProperty& property) const {
 	ULONG size = 0;
 	PEVENT_MAP_INFO eventMap = nullptr;

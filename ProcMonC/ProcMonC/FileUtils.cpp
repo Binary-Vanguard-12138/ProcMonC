@@ -169,3 +169,19 @@ std::string getAnsiString(TCHAR* szEvent) {
 #endif
 	return sEvent;
 }
+
+tstring Escape4Csv(tstring s) {
+	if (s.find(_T('"')) != tstring::npos) {  //Escape double-quotes
+		std::string::size_type pos = 0;
+		while (1) {
+			pos = s.find('"', pos);
+			if (pos == std::string::npos)break;
+			s.replace(pos, 1, _T("\"\""));
+			pos += 2; //Need to skip over those two quotes, to avoid an infinite loop!
+		}
+	}
+	if (s.find(',') != std::string::npos) { //Need to surround with "..."
+		s = _T('"') + s + _T('"');
+	}
+	return s;
+}

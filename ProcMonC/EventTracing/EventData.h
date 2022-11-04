@@ -55,6 +55,7 @@ public:
 	const std::wstring& GetEventName() const;
 	const std::wstring& GetFileName() const;
 	uint32_t GetIndex() const;
+	const GUID *GetGUIDPtr() const;
 
 	const std::vector<EventProperty>& GetProperties() const;
 	const EventProperty* GetProperty(PCWSTR name) const;
