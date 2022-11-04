@@ -1,0 +1,15 @@
+those files should be updated periodically (1minue)
+like
+process_221103_2010.csv
+process_YYMMDD_HHmm.csv
+
+Process:
+id, name, path, Command Lline, parent id, parent name, parent path
+with csv format
+
+File:
+Open/Read/Write:
+Open/Read/Write,file path,process id,process path with csv format
+Can you filter only "QueryBasicInformationFile" ?
+2:55 PM
+and except *.dll 

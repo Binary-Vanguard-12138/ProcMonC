@@ -50,6 +50,7 @@ public:
 
 private:
 	const std::wstring& GetkernelEventName(EVENT_RECORD* rec) const;
+	const std::wstring GetEventFileName(EVENT_RECORD* rec) const;
 	void AddProcessName(DWORD pid, std::wstring name);
 	bool RemoveProcessName(DWORD pid);
 	void EnumProcesses();

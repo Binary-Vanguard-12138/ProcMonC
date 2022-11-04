@@ -73,7 +73,8 @@ bool TraceManager::Start(EventCallback cb) {
 		::memset(_propertiesBuffer.get(), 0, size);
 
 		_properties = reinterpret_cast<EVENT_TRACE_PROPERTIES*>(_propertiesBuffer.get());
-		_properties->EnableFlags = (ULONG)KernelEventTypes::Process;
+		_properties->EnableFlags = (ULONG)(KernelEventTypes::Process);
+		// _properties->EnableFlags = (ULONG)(KernelEventTypes::Process | KernelEventTypes::FileIO | KernelEventTypes::DiskFileIO | KernelEventTypes::Thread | KernelEventTypes::FileIOInit);
 		_properties->Wnode.BufferSize = (ULONG)size;
 		_properties->Wnode.Guid = isWin8Plus ? dummyGuid : SystemTraceControlGuid;
 		_properties->Wnode.Flags = WNODE_FLAG_TRACED_GUID;
@@ -267,9 +268,9 @@ void TraceManager::OnEventRecord(PEVENT_RECORD rec) {
 	auto& eventName = GetkernelEventName(rec);
 	if (eventName.empty() && _dumpUnnamedEvents)
 		return;
-
+	auto fileName = GetEventFileName(rec);
 	// use the separate heap
-	std::shared_ptr<EventData> data(new EventData(rec, GetProcessImageById(pid), eventName, ++_index));
+	std::shared_ptr<EventData> data(new EventData(rec, GetProcessImageById(pid), eventName, fileName, ++_index));
 
 	// force copying properties
 	data->GetProperties();
@@ -383,6 +384,35 @@ const std::wstring& TraceManager::GetkernelEventName(EVENT_RECORD* rec) const {
 		const auto name = std::wstring((PCWSTR)((PBYTE)info + info->TaskNameOffset)) + L"/" + std::wstring((PCWSTR)((PBYTE)info + info->OpcodeNameOffset));
 		_kernelEventNames.insert({ key, name });
 		return _kernelEventNames[key];
+	}
+	return empty;
+}
+
+typedef struct
+{
+	ULONG_PTR FileObject;
+	WCHAR FileName[1];
+} FileIo_Name;
+
+const std::wstring TraceManager::GetEventFileName(EVENT_RECORD* rec) const {
+	static const std::wstring empty;
+	std::wstring wsRet;
+	if (memcmp(&rec->EventHeader.ProviderId, &FileIoGuid, sizeof(GUID)) == 0) {
+		auto& desc = rec->EventHeader.EventDescriptor;
+		FileIo_Name* data = NULL;
+		switch (desc.Opcode)
+		{
+		case 0:	// Name
+		case 32: // FileCreate
+		case 35: // FileDelete
+		case 36: // FileRundown
+			data = (FileIo_Name*)rec->UserData;
+			wsRet = std::wstring((WCHAR*)data->FileName);
+			return wsRet;
+			break;
+		default:
+			break;
+		}
 	}
 	return empty;
 }

@@ -22,8 +22,8 @@ PCSTR EventProperty::GetAnsiString() const {
 
 // EventData
 
-EventData::EventData(PEVENT_RECORD rec, std::wstring processName, const std::wstring& eventName, uint32_t index) : _record(rec),
-	_processName(std::move(processName)), _eventName(std::move(eventName)), _index(index) {
+EventData::EventData(PEVENT_RECORD rec, std::wstring processName, const std::wstring& eventName, const std::wstring& fileName, uint32_t index) : _record(rec),
+	_processName(std::move(processName)), _eventName(std::move(eventName)), _fileName(std::move(fileName)), _index(index) {
 	auto& header = rec->EventHeader;
 	_headerFlags = header.Flags;
 	_processId = header.ProcessId;
@@ -85,6 +85,10 @@ const std::wstring& EventData::GetProcessName() const {
 
 const std::wstring& EventData::GetEventName() const {
 	return _eventName;
+}
+
+const std::wstring& EventData::GetFileName() const {
+	return _fileName;
 }
 
 DWORD EventData::GetThreadId() const {

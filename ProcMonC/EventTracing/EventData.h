@@ -41,7 +41,7 @@ private:
 class EventData {
 	friend class TraceManager;
 public:
-	EventData(PEVENT_RECORD rec, std::wstring processName, const std::wstring& eventName, uint32_t index);
+	EventData(PEVENT_RECORD rec, std::wstring processName, const std::wstring& eventName, const std::wstring& fileName, uint32_t index);
 
 	void* operator new(size_t size);
 	void operator delete(void* p);
@@ -53,6 +53,7 @@ public:
 	const EVENT_DESCRIPTOR& GetEventDescriptor() const;
 	const std::wstring& GetProcessName() const;
 	const std::wstring& GetEventName() const;
+	const std::wstring& GetFileName() const;
 	uint32_t GetIndex() const;
 
 	const std::vector<EventProperty>& GetProperties() const;
@@ -76,6 +77,7 @@ private:
 	ULONG _kernelTime, _userTime;
 	GUID _providerId;
 	std::wstring _processName;
+	std::wstring _fileName;
 	USHORT _headerFlags;
 	const std::wstring& _eventName;
 	mutable std::unique_ptr<BYTE[]> _buffer;
